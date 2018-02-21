@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:minWidth="25px"
+    android:minHeight="25px"
+    android:id="@+id/linearLayout5"
+    android:background="@drawable/bg">
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/linearLayout2">
+        <Switch
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:textSize="15dp"
+            android:textColor="#444444"
+            android:text="STICK= "
+            android:id="@+id/modeSwitch"
+            android:background="@drawable/stick"
+            android:textOn="MODE 1"
+            android:textOff="MODE 2"
+            android:typeface="monospace"
+            android:trackTintMode="src_over" />
+        <TextView
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:textSize="20dp"
+            android:textColor="#444444"
+            android:text="X"
+            android:id="@+id/textView1" />
+        <TextView
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:textSize="20dp"
+            android:textColor="#444444"
+            android:text="Y"
+            android:id="@+id/textView2" />
+        <TextView
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:textSize="20dp"
+            android:textColor="#444444"
+            android:text="Angle"
+            android:id="@+id/textView3" />
+        <TextView
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:textSize="20dp"
+            android:textColor="#444444"
+            android:text="Distance"
+            android:id="@+id/textView4" />
+        <TextView
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:textSize="20dp"
+            android:textColor="#444444"
+            android:text="Direction"
+            android:id="@+id/textView5" />
+        <RelativeLayout
+            android:layout_height="200dp"
+            android:layout_width="200dp"
+            android:id="@+id/layout_joystick1"
+            android:background="@drawable/ground"
+            android:layout_marginRight="36dp"
+            android:minWidth="25px"
+            android:minHeight="25px" />
+    </LinearLayout>
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/linearLayout2">
+        <Space
+            android:layout_width="400.0dp"
+            android:layout_height="241.0dp"
+            android:id="@+id/space1"
+            android:layout_marginBottom="0.0dp" />
+        <ToggleButton
+            android:layout_width="370.0dp"
+            android:layout_height="wrap_content"
+            android:id="@+id/armButton"
+            android:textOn="시동 ON"
+            android:textOff="시동 OFF" />
+        <TextView
+            android:text="Text"
+            android:layout_width="match_parent"
+            android:layout_height="82.0dp"
+            android:id="@+id/textView11" />
+    </LinearLayout>
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/linearLayout2">
+        <Switch
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:textSize="15dp"
+            android:textColor="#444444"
+            android:text="MODE = "
+            android:id="@+id/flightSwitch"
+            android:background="@drawable/stick"
+            android:textOn="ANGLE"
+            android:textOff="ALT HOLD"
+            android:trackTintMode="src_atop" />
+        <TextView
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:textSize="20dp"
+            android:textColor="#444444"
+            android:text="X"
+            android:id="@+id/textView6" />
+        <TextView
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:textSize="20dp"
+            android:textColor="#444444"
+            android:text="Y"
+            android:id="@+id/textView7" />
+        <TextView
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:textSize="20dp"
+            android:textColor="#444444"
+            android:text="Angle"
+            android:id="@+id/textView8" />
+        <TextView
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:textSize="20dp"
+            android:textColor="#444444"
+            android:text="Distance"
+            android:id="@+id/textView9" />
+        <TextView
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:textSize="20dp"
+            android:textColor="#444444"
+            android:text="Direction"
+            android:id="@+id/textView10" />
+        <RelativeLayout
+            android:layout_height="200dp"
+            android:layout_width="200dp"
+            android:id="@+id/layout_joystick2"
+            android:background="@drawable/ground"
+            android:layout_marginRight="36dp"
+            android:minWidth="25px"
+            android:minHeight="25px" />
+    </LinearLayout>
+</LinearLayout>

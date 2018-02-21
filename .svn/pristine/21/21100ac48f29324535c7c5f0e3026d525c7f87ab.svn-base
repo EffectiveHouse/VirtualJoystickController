@@ -1,0 +1,428 @@
+﻿using Android.App;
+using Android.Widget;
+using Android.OS;
+using Android.Views;
+using Android.Runtime;
+using Android.Content.PM;
+using System.Threading;
+using System;
+using Android.Content;
+using Android.Hardware.Input;
+using System.Collections.Generic;
+using Android.Util;
+using Java.Lang;
+
+namespace controller
+{
+    [Activity(Label = "Virtual Controller Stick", ScreenOrientation = ScreenOrientation.Landscape, Theme = "@android:style/Theme.NoTitleBar.Fullscreen",
+         ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.KeyboardHidden | ConfigChanges.ScreenSize)]
+    public class ControllerActivity : Activity, InputManager.IInputDeviceListener
+    {
+        private const bool AUTO_HIDE = true;
+        private const short ARM_ON   = 2000;
+        private const short ARM_OFF  = 1000;
+        private const short FLIGHT_MODE_ANGLE   = 1000;
+        private const short FLIGHT_MODE_ALTHOLD = 2000;
+        private const int   STICK_OUTPUT_MIN = 1000;
+        private const int   STICK_OUTPUT_MAX = 2000;
+        private const string LEFT_PAD_NAME = "LeftStickPad";
+        private const string RIGHT_PAD_NAME = "RightStickPad"; 
+
+        private int stickModeID;
+        private int flightModeID;
+        //Controller data : T, A, E, R, Aux1, Aux2, Aux3, Aux4
+        private static short[] controllerData = new short[8];
+        private static float[] axesData = new float[AxesMapping.size];
+        private static int[] buttonMap = new int[ButtonMapping.size];
+
+        private InputManager inputManager;
+        private RelativeLayout layoutJoystick1, layoutJoystick2;
+        private ToggleButton armButton;
+        private TextView textView1, textView11, textView2;
+        private Switch modeSwitch, flightSwitch;
+        private Spinner stickModeSpinner, flightModeSpinner;
+        
+        VirtualController LeftStickPad, RightStickPad;
+        JoystickController joystickPad;
+
+        protected override void OnCreate(Bundle savedInstanceState)
+        {
+            base.OnCreate(savedInstanceState);
+            SetContentView(Resource.Layout.VirtualController);
+
+            ISharedPreferences pref = GetSharedPreferences("pref", FileCreationMode.Private);
+            stickModeID = pref.GetInt("stick_mode", 0);  //(Key, Defualt Value)
+            flightModeID = pref.GetInt("flight_mode", 0);//(Key, Defualt Value)
+
+            for (int i = 0; i < controllerData.Length; i++)
+                controllerData[i] = 0;
+            for (int i = 0; i < buttonMap.Length; i++)
+                buttonMap[i] = 0;
+            for (int i = 0; i < axesData.Length; i++)
+                axesData[i] = 0.0f;
+
+            textView1 = this.FindViewById<TextView>(Resource.Id.textView1);
+            textView2 = this.FindViewById<TextView>(Resource.Id.textView2);
+            textView11 = this.FindViewById<TextView>(Resource.Id.textView11);
+            armButton = this.FindViewById<ToggleButton>(Resource.Id.armButton);
+            modeSwitch = this.FindViewById<Switch>(Resource.Id.modeSwitch);
+            flightSwitch = this.FindViewById<Switch>(Resource.Id.flightSwitch);
+            stickModeSpinner = this.FindViewById<Spinner>(Resource.Id.spinnerStickMode);
+            flightModeSpinner = this.FindViewById<Spinner>(Resource.Id.spinnerFlightMode);
+            layoutJoystick1 = this.FindViewById<RelativeLayout>(Resource.Id.layout_joystick1);
+            layoutJoystick2 = this.FindViewById<RelativeLayout>(Resource.Id.layout_joystick2);
+
+            stickModeSpinner.ItemSelected += new EventHandler<AdapterView.ItemSelectedEventArgs> (Spinner_ItemSelected);
+            var adapter1 = ArrayAdapter.CreateFromResource(this, Resource.Array.stick_array, Android.Resource.Layout.SimpleSpinnerItem);
+            adapter1.SetDropDownViewResource(Android.Resource.Layout.SimpleSpinnerDropDownItem);
+            stickModeSpinner.Adapter = adapter1;
+
+            flightModeSpinner.ItemSelected += new EventHandler<AdapterView.ItemSelectedEventArgs>(Spinner_ItemSelected);
+            var adapter2 = ArrayAdapter.CreateFromResource(this, Resource.Array.flight_array, Android.Resource.Layout.SimpleSpinnerItem);
+            adapter2.SetDropDownViewResource(Android.Resource.Layout.SimpleSpinnerDropDownItem);
+            flightModeSpinner.Adapter = adapter2;
+
+            stickModeSpinner.SetSelection(stickModeID);
+            flightModeSpinner.SetSelection(flightModeID);
+
+            inputManager = (InputManager)GetSystemService(Context.InputService);
+
+            joystickPad = new JoystickController();
+
+            LeftStickPad = new VirtualController(ApplicationContext, layoutJoystick1, Resource.Drawable.image_button);
+            LeftStickPad.SetStickSize(100, 100);
+            LeftStickPad.SetLayoutSize(500, 500);
+            LeftStickPad.LayoutAlpha = 300;
+            LeftStickPad.StickAlpha = 100;
+            LeftStickPad.Offset = 90;
+            LeftStickPad.MinimumDistance = 50;
+
+            RightStickPad = new VirtualController(ApplicationContext, layoutJoystick2, Resource.Drawable.image_button);
+            RightStickPad.SetStickSize(100, 100);
+            RightStickPad.SetLayoutSize(500, 500);
+            RightStickPad.LayoutAlpha = 150;
+            RightStickPad.StickAlpha = 100;
+            RightStickPad.Offset = 90;
+            RightStickPad.MinimumDistance = 50;
+
+            layoutJoystick1.SetOnTouchListener(new OnTouchListenerAnonymousInnerClass(this, LeftStickPad,"LeftStickPad"));                                                                                                  //layoutJoystick.Touch += LayoutJoystick_Touch;
+            layoutJoystick2.SetOnTouchListener(new OnTouchListenerAnonymousInnerClass(this, RightStickPad, "RightStickPad"));
+
+            armButton.Click += ArmButton_Click;
+            StartActivity();
+        }
+
+        public void StartActivity()
+        {
+            ThreadPool.QueueUserWorkItem(delegate (object state)
+            {
+                
+                RunOnUiThread(() => {
+                    joystickPad.CheckGameControllers(inputManager.GetInputDeviceIds());
+                    GetStickData();
+                    textView11.Text = "\n" + controllerData[0].ToString() + controllerData[1].ToString() + controllerData[2].ToString() + controllerData[3].ToString();    
+                });
+            }
+            , null);
+        }
+
+        private void ArmButton_Click(object sender, System.EventArgs e)
+        {
+            if (armButton.Checked)
+            {
+                controllerData[4] = ARM_ON;
+
+                ISharedPreferences pref = GetSharedPreferences("pref", FileCreationMode.Private);
+                ISharedPreferencesEditor editor = pref.Edit();
+
+                editor.PutInt("stick_mode", (int)stickModeSpinner.SelectedItemId);
+                editor.PutInt("flight_mode", (int)flightModeSpinner.SelectedItemId);
+
+                editor.Commit();
+
+                InitStickPosition();
+              
+                modeSwitch.Visibility = ViewStates.Invisible;
+                flightSwitch.Visibility = ViewStates.Invisible;
+
+                flightModeSpinner.Enabled = false;
+                stickModeSpinner.Enabled = false;
+            }
+            else
+            {
+                controllerData[4] = ARM_OFF;
+                modeSwitch.Visibility = ViewStates.Visible;
+                flightSwitch.Visibility = ViewStates.Visible;
+
+                flightModeSpinner.Enabled = true;
+                stickModeSpinner.Enabled = true;
+
+                LeftStickPad.Remove();
+                RightStickPad.Remove();
+            }
+            textView11.Text = "T: " + controllerData[0].ToString() + "A: " + controllerData[1].ToString() + "E: " + controllerData[2].ToString() + "R: " + controllerData[3].ToString();
+        }
+
+        public void GetStickData()
+        {
+            if (armButton.Checked)
+            {
+                if (stickModeSpinner.SelectedItemId == 0)
+                {//Stick Mode 1
+                    controllerData[0] = (short)VirtualController.ConversionStickData(-RightStickPad.Y, -RightStickPad.STICK_Y_MAX, -RightStickPad.STICK_Y_MIN, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);   //T
+                    controllerData[1] = (short)VirtualController.ConversionStickData(RightStickPad.X, RightStickPad.STICK_X_MIN, RightStickPad.STICK_X_MAX, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);      //A
+                    controllerData[2] = (short)VirtualController.ConversionStickData(LeftStickPad.Y, LeftStickPad.STICK_Y_MIN, LeftStickPad.STICK_Y_MAX, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);      //E
+                    controllerData[3] = (short)VirtualController.ConversionStickData(-LeftStickPad.X, -LeftStickPad.STICK_X_MAX, -LeftStickPad.STICK_X_MIN, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);   //R
+                }
+                else if (stickModeSpinner.SelectedItemId == 1)
+                {//Stick Mode 2
+                    controllerData[0] = (short)VirtualController.ConversionStickData(-LeftStickPad.Y, -LeftStickPad.STICK_Y_MAX, -LeftStickPad.STICK_Y_MIN, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);   //T
+                    controllerData[1] = (short)VirtualController.ConversionStickData(RightStickPad.X, LeftStickPad.STICK_X_MIN, LeftStickPad.STICK_X_MAX, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);      //A
+                    controllerData[2] = (short)VirtualController.ConversionStickData(RightStickPad.Y, RightStickPad.STICK_Y_MIN, RightStickPad.STICK_Y_MAX, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);      //E
+                    controllerData[3] = (short)VirtualController.ConversionStickData(-LeftStickPad.X, -LeftStickPad.STICK_X_MAX, -LeftStickPad.STICK_X_MIN, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);   //R
+                }
+            }
+            else
+            {
+                for (int i = 0; i < controllerData.Length; i++)
+                    controllerData[i] = STICK_OUTPUT_MIN;
+            }
+        }
+
+        public void InitStickPosition()
+        {
+            if (flightModeSpinner.SelectedItem.ToString() == "ANGLE MODE")
+            {
+                controllerData[5] = FLIGHT_MODE_ANGLE;
+
+                if (stickModeSpinner.SelectedItemId == 0)
+                { //Stick Mode 1
+
+                    LeftStickPad.DrawPosition(LeftStickPad.STICK_X_CENTER, LeftStickPad.STICK_Y_CENTER);
+                    RightStickPad.DrawPosition(RightStickPad.STICK_X_CENTER, RightStickPad.STICK_Y_MAX);
+                    GetStickData();
+                }
+                else if (stickModeSpinner.SelectedItemId == 1)
+                { //Stick Mode 2
+                    LeftStickPad.DrawPosition(LeftStickPad.STICK_X_CENTER, LeftStickPad.STICK_Y_MAX);
+                    RightStickPad.DrawPosition(RightStickPad.STICK_X_CENTER, RightStickPad.STICK_Y_CENTER);
+                    GetStickData();
+                }
+            }
+            else if (flightModeSpinner.SelectedItem.ToString() == "POSISTION HOLD MODE")
+            {
+                controllerData[5] = FLIGHT_MODE_ALTHOLD;
+                LeftStickPad.DrawPosition(LeftStickPad.STICK_X_CENTER, LeftStickPad.STICK_Y_CENTER);
+                RightStickPad.DrawPosition(RightStickPad.STICK_X_CENTER, RightStickPad.STICK_Y_CENTER);
+                GetStickData();
+            }
+        }
+
+        protected override void OnStop()
+        {
+            base.OnStop();
+            ISharedPreferences pref = GetSharedPreferences("pref", FileCreationMode.Private);
+            ISharedPreferencesEditor editor = pref.Edit();
+
+            editor.PutInt("stick_mode", (int)stickModeSpinner.SelectedItemId);
+            editor.PutInt("flight_mode", (int)flightModeSpinner.SelectedItemId);
+
+            editor.Commit();
+        }
+
+        private void Spinner_ItemSelected(object sender, AdapterView.ItemSelectedEventArgs e)
+        {
+            Spinner spinner = (Spinner)sender;
+            string toast = string.Format("SELECT: {0}", spinner.GetItemAtPosition(e.Position));
+            Toast.MakeText(this, toast, ToastLength.Long).Show();
+            //textView11.Text = spinner.GetItemAtPosition(e.Position).ToString() + "  " + flightModeSpinner.SelectedItem.ToString();
+        }
+
+        private class OnTouchListenerAnonymousInnerClass : Java.Lang.Object, Android.Views.View.IOnTouchListener
+        {
+            private readonly ControllerActivity outerInstance;
+            private readonly VirtualController js;
+            private readonly string stickName;
+            private TextView text1, text2;
+
+            public OnTouchListenerAnonymousInnerClass(ControllerActivity outerInstance, VirtualController js, string name)
+            {
+                this.outerInstance = outerInstance;
+                this.js = js;
+                this.stickName = name;
+                text1 = outerInstance.textView11;
+                text2 = outerInstance.textView1;
+            }
+
+            public bool OnTouch(View v, MotionEvent e)
+            {
+                if(controllerData[4] == ARM_ON)
+                {
+                    js.DrawStick(e);
+
+                    if (e.Action == MotionEventActions.Down || e.Action == MotionEventActions.Move)
+                    {
+                        outerInstance.GetStickData();
+                        text1.Text = "T: " + controllerData[0].ToString() + "A: " + controllerData[1].ToString() + "E: " + controllerData[2].ToString() + "R: " + controllerData[3].ToString();
+                        //text2.Text = "X: " + js.X + "Y: " + js.Y;
+                    }
+                    else if (e.Action == MotionEventActions.Up)
+                    {
+                        if (outerInstance.flightModeSpinner.SelectedItem.ToString() == "ANGLE MODE")
+                        {
+                            if (outerInstance.stickModeSpinner.SelectedItemId == 0)
+                            {//Stick Mode 1
+                                if (stickName.Equals(LEFT_PAD_NAME))
+                                {
+                                    js.DrawPosition(js.STICK_X_CENTER, js.STICK_Y_CENTER);
+                                    controllerData[2] = (short)VirtualController.ConversionStickData(js.Y, js.STICK_Y_MIN, js.STICK_Y_MAX, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);    //E
+                                    controllerData[3] = (short)VirtualController.ConversionStickData(-js.X, -js.STICK_X_MAX, -js.STICK_X_MIN, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);   //R
+                                }
+                                else if (stickName.Equals(RIGHT_PAD_NAME))
+                                {
+                                    js.DrawPosition(js.STICK_X_CENTER, (float)js.Y);
+                                    controllerData[0] = (short)VirtualController.ConversionStickData(-js.Y, -js.STICK_Y_MAX, -js.STICK_Y_MIN, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);   //T
+                                    controllerData[1] = (short)VirtualController.ConversionStickData(js.X, js.STICK_X_MIN, js.STICK_X_MAX, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);    //A
+                                }
+                            }
+                            else if (outerInstance.stickModeSpinner.SelectedItemId == 1)
+                            {//Stick Mode 2
+                                if (stickName.Equals(LEFT_PAD_NAME))
+                                {
+                                    js.DrawPosition(js.STICK_X_CENTER, (float)js.Y);
+                                    controllerData[0] = (short)VirtualController.ConversionStickData(-js.Y, -js.STICK_Y_MAX, -js.STICK_Y_MIN, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);   //T
+                                    controllerData[3] = (short)VirtualController.ConversionStickData(-js.X, -js.STICK_X_MAX, -js.STICK_X_MIN, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);  //R
+                                }
+                                else if (stickName.Equals(RIGHT_PAD_NAME))
+                                {
+                                    js.DrawPosition(js.STICK_X_CENTER, js.STICK_Y_CENTER);
+                                    controllerData[1] = (short)VirtualController.ConversionStickData(js.X, js.STICK_X_MIN, js.STICK_X_MAX, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);    //A
+                                    controllerData[2] = (short)VirtualController.ConversionStickData(js.Y, js.STICK_Y_MIN, js.STICK_Y_MAX, STICK_OUTPUT_MIN, STICK_OUTPUT_MAX);    //E
+                                }
+                            }
+                        }
+                        else
+                        {
+                            outerInstance.InitStickPosition();
+                        }
+
+                        text1.Text = "T: " + controllerData[0].ToString() + "A: " + controllerData[1].ToString() + "E: " + controllerData[2].ToString() + "R: " + controllerData[3].ToString();
+                        //text2.Text = "X: " + js.X + "Y: " + js.Y;
+                    }
+                }
+                else
+                {//ARM OFF
+
+                }
+                return true;
+            }
+        }
+
+        private void LayoutJoystick_Touch(object sender, View.TouchEventArgs e)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public override bool OnGenericMotionEvent(MotionEvent e)
+        {
+            InputDevice device = e.Device;
+            if (device != null && device.Id == joystickPad.currentDeviceID)
+            {
+                if (JoystickController.IsGamepad(device))
+                {
+                    textView2.Text = "\nLSTICK X:" + e.GetAxisValue(AxesMapping.AXIS_X).ToString() + " Y: " + e.GetAxisValue(AxesMapping.AXIS_Y).ToString() +
+                                      "\nRSTICK X:" + e.GetAxisValue(AxesMapping.AXIS_RX).ToString() + "Y: " + e.GetAxisValue(AxesMapping.AXIS_RY).ToString();
+
+                }
+            }
+            return base.OnGenericMotionEvent(e);
+        }
+
+        public override bool OnKeyDown([GeneratedEnum] Keycode keyCode, KeyEvent e)
+        {
+            InputDevice device = e.Device;
+            if (device != null && device.Id == joystickPad.currentDeviceID)
+            {
+                if (JoystickController.IsGamepad(device))
+                {
+                    int index = ButtonMapping.OrdinalValue(keyCode);
+                    if (index >= 0)
+                    {
+                        buttonMap[index] = 1;
+                    }
+                    return true;
+                }
+            }
+            return base.OnKeyDown(keyCode, e);
+        }
+
+        public override bool OnKeyUp([GeneratedEnum] Keycode keyCode, KeyEvent e)
+        {
+            InputDevice device = e.Device;
+            if (device != null && device.Id == joystickPad.currentDeviceID)
+            {
+                int index = ButtonMapping.OrdinalValue(keyCode);
+                if (index >= 0)
+                {
+                    buttonMap[index] = 0;
+                }
+                return true;
+            }
+            return base.OnKeyUp(keyCode, e);
+        }
+
+        public override bool OnKeyLongPress([GeneratedEnum] Keycode keyCode, KeyEvent e)
+        {
+            return base.OnKeyLongPress(keyCode, e);
+        }
+
+        public override bool OnKeyMultiple([GeneratedEnum] Keycode keyCode, int repeatCount, KeyEvent e)
+        {
+            return base.OnKeyMultiple(keyCode, repeatCount, e);
+        }
+
+        public override bool OnKeyShortcut([GeneratedEnum] Keycode keyCode, KeyEvent e)
+        {
+            return base.OnKeyShortcut(keyCode, e);
+        }
+
+        public void OnInputDeviceAdded(int deviceId)
+        {
+            if (!joystickPad.connectedDevices.Contains(deviceId))
+            {
+                joystickPad.connectedDevices.Add(deviceId);
+            }
+            if (joystickPad.currentDeviceID == -1)
+            {
+                joystickPad.currentDeviceID = deviceId;
+                InputDevice dev = InputDevice.GetDevice(joystickPad.currentDeviceID);
+                if (dev != null)
+                {
+                }
+            }
+        }
+
+        public void OnInputDeviceChanged(int deviceId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void OnInputDeviceRemoved(int deviceId)
+        {
+            joystickPad.connectedDevices.Remove(deviceId);
+            if (joystickPad.currentDeviceID == deviceId)
+                joystickPad.currentDeviceID = -1;
+
+            if (joystickPad.connectedDevices.Count == 0)
+            {
+            }
+            else
+            {
+                joystickPad.currentDeviceID = joystickPad.connectedDevices[0];
+                InputDevice dev = InputDevice.GetDevice(joystickPad.currentDeviceID);
+            }
+        }
+    }
+}
+
+

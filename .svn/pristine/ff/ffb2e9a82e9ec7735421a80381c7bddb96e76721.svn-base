@@ -1,0 +1,239 @@
+﻿using Android.App;
+using Android.Widget;
+using Android.OS;
+using Android.Views;
+using Android.Runtime;
+using Android.Content.PM;
+
+namespace controller
+{
+    [Activity(Label = "Virtual Controller Stick", ScreenOrientation = ScreenOrientation.Landscape, Theme = "@android:style/Theme.NoTitleBar.Fullscreen",
+         ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.KeyboardHidden | ConfigChanges.ScreenSize)]
+    public class VirtaulActivity : Activity
+    {
+
+        public const short ARM_ON   = 1900;
+        public const short ARM_OFF  = 1000;
+        public const short FLIGHT_MODE_ANGLE   = 1000;
+        public const short FLIGHT_MODE_ALTHOLD = 1900;
+
+        //Controller data : T, A, E, R, Aux1, Aux2, Aux3, Aux4
+        public short[] controllerData = new short[8];
+
+        //private ImageView imageJoystick, imageBorder;
+       
+        private RelativeLayout layoutJoystick1, layoutJoystick2;
+        private ToggleButton armButton;
+        private TextView textView1, textView2, textView3, textView4, textView5, textView6, textView7, textView8, textView9, textView10;
+        private Switch modeSwitch, flightSwitch;
+
+        VirtualController js1, js2;
+
+        protected override void OnCreate(Bundle savedInstanceState)
+        {
+            base.OnCreate(savedInstanceState);
+            SetContentView(Resource.Layout.VirtualController);
+
+            textView1 = this.FindViewById<TextView>(Resource.Id.textView1);
+            textView2 = this.FindViewById<TextView>(Resource.Id.textView2);
+            textView3 = this.FindViewById<TextView>(Resource.Id.textView3);
+            textView4 = this.FindViewById<TextView>(Resource.Id.textView4);
+            textView5 = this.FindViewById<TextView>(Resource.Id.textView5);
+            textView6 = this.FindViewById<TextView>(Resource.Id.textView6);
+            textView7 = this.FindViewById<TextView>(Resource.Id.textView7);
+            textView8 = this.FindViewById<TextView>(Resource.Id.textView8);
+            textView9 = this.FindViewById<TextView>(Resource.Id.textView9);
+            textView10 = this.FindViewById<TextView>(Resource.Id.textView10);
+
+            armButton = this.FindViewById<ToggleButton>(Resource.Id.armButton);
+            modeSwitch = this.FindViewById<Switch>(Resource.Id.modeSwitch);
+            flightSwitch = this.FindViewById<Switch>(Resource.Id.flightSwitch);
+
+            layoutJoystick1 = this.FindViewById<RelativeLayout>(Resource.Id.layout_joystick1);
+            layoutJoystick2 = this.FindViewById<RelativeLayout>(Resource.Id.layout_joystick2);
+
+            textView3.Visibility = ViewStates.Gone;
+            textView4.Visibility = ViewStates.Gone;
+            textView5.Visibility = ViewStates.Gone;
+            textView8.Visibility = ViewStates.Gone;
+            textView9.Visibility = ViewStates.Gone;
+            textView10.Visibility = ViewStates.Gone;
+
+            js1 = new VirtualController(ApplicationContext, layoutJoystick1, Resource.Drawable.image_button);
+            js1.SetStickSize(100, 100);
+            js1.SetLayoutSize(500, 500);
+            js1.LayoutAlpha = 300;
+            js1.StickAlpha = 100;
+            js1.Offset = 90;
+            js1.MinimumDistance = 50;
+
+            js2 = new VirtualController(ApplicationContext, layoutJoystick2, Resource.Drawable.image_button);
+            js2.SetStickSize(100, 100);
+            js2.SetLayoutSize(500, 500);
+            js2.LayoutAlpha = 150;
+            js2.StickAlpha = 100;
+            js2.Offset = 90;
+            js2.MinimumDistance = 50;
+
+            layoutJoystick1.SetOnTouchListener(new OnTouchListenerAnonymousInnerClass(this, js1, 1)); //= new OnTouchListenerAnonymousInnerClass(this);
+                                                                                                      //layoutJoystick.Touch += LayoutJoystick_Touch;
+            layoutJoystick2.SetOnTouchListener(new OnTouchListenerAnonymousInnerClass(this, js2, 2));
+
+            armButton.Click += ArmButton_Click;
+        }
+
+        private void ArmButton_Click(object sender, System.EventArgs e)
+        {
+            if (armButton.Checked)
+            {
+                controllerData[4] = ARM_ON;
+
+                if (flightSwitch.Checked)
+                {
+                    controllerData[5] = FLIGHT_MODE_ANGLE;
+                    if (modeSwitch.Checked)
+                    { //Stick Mode 1
+                        js1.DrawPosition(250, 250);
+                        js2.DrawPosition(250, 450);
+                    }
+                    else
+                    { //Stick Mode 2
+                        js1.DrawPosition(250, 450);
+                        js2.DrawPosition(250, 250);
+                    }
+                }
+                else
+                {
+                    controllerData[5] = FLIGHT_MODE_ALTHOLD;
+                        
+                    js1.mLayout.remo
+                }
+
+                modeSwitch.Visibility = ViewStates.Invisible;
+                flightSwitch.Visibility = ViewStates.Invisible;
+            }
+            else
+            {
+                controllerData[4] = ARM_OFF;
+                modeSwitch.Visibility = ViewStates.Visible;
+                flightSwitch.Visibility = ViewStates.Visible;
+
+
+            }
+        }
+
+        public static double ConversionStickData(double input, int inputMin, int inputMax, int outputMin, int outputMax)
+        {
+
+            double inputData = ConstrainMinMax(input, inputMin, inputMax);
+
+            double value = (inputData - inputMin) * (outputMax - outputMin) / (inputMax - inputMin) + outputMin;
+
+            return ConstrainMinMax(value, outputMin, outputMax);
+        }
+
+        public static double ConstrainMinMax(double input, int min, int max)
+        {
+            return ((input > max) ? max : (input < min) ? min : input);
+        }
+
+
+
+        private class OnTouchListenerAnonymousInnerClass : Java.Lang.Object, Android.Views.View.IOnTouchListener
+        {
+            private readonly VirtaulActivity outerInstance;
+            private readonly VirtualController js;
+            private readonly int JoystickNumber;
+            private TextView text1, text2, text3, text4, text5;
+
+            private short X, Y;
+
+            public const int inputMin = -1;
+            public const int inputMax = 1;
+            public const int outputMin = 1000;
+            public const int outputMax = 2000;
+
+            public OnTouchListenerAnonymousInnerClass(VirtaulActivity outerInstance, VirtualController js, int number)
+            {
+                this.outerInstance = outerInstance;
+                this.js = js;
+                this.JoystickNumber = number;
+
+                if (JoystickNumber == 1)
+                {
+                    text1 = outerInstance.textView1;
+                    text2 = outerInstance.textView2;
+                }
+                else if (JoystickNumber == 2)
+                {
+                    text1 = outerInstance.textView6;
+                    text2 = outerInstance.textView7;
+                }
+            }
+
+            public bool OnTouch(View v, MotionEvent e)
+            {
+                if(outerInstance.controllerData[4] == ARM_ON)
+                {
+                    js.DrawStick(e);
+
+                    if (e.Action == MotionEventActions.Down || e.Action == MotionEventActions.Move)
+                    {
+                        X = (short)ConversionStickData(js.X, inputMin, inputMax, outputMin, outputMax);
+                        Y = (short)ConversionStickData(-js.Y, inputMin, inputMax, outputMin, outputMax);
+
+                        text1.Text = "X : " + X.ToString() + " " + e.GetX();
+                        text2.Text = "Y : " + Y.ToString() + " " + e.GetY();
+                    }
+                    else if (e.Action == MotionEventActions.Up)
+                    {
+                        text1.Text = "X : " + X.ToString();
+                        text2.Text = "Y : " + Y.ToString();
+                    }
+                }
+                else
+                {
+
+                }
+                return true;
+            }
+        }
+
+        private void LayoutJoystick_Touch(object sender, View.TouchEventArgs e)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public override bool OnGenericMotionEvent(MotionEvent e)
+        {
+            return base.OnGenericMotionEvent(e);
+        }
+
+        public override bool OnKeyDown([GeneratedEnum] Keycode keyCode, KeyEvent e)
+        {
+            return base.OnKeyDown(keyCode, e);
+        }
+
+        public override bool OnKeyUp([GeneratedEnum] Keycode keyCode, KeyEvent e)
+        {
+            return base.OnKeyUp(keyCode, e);
+        }
+
+        public override bool OnKeyLongPress([GeneratedEnum] Keycode keyCode, KeyEvent e)
+        {
+            return base.OnKeyLongPress(keyCode, e);
+        }
+
+        public override bool OnKeyMultiple([GeneratedEnum] Keycode keyCode, int repeatCount, KeyEvent e)
+        {
+            return base.OnKeyMultiple(keyCode, repeatCount, e);
+        }
+
+        public override bool OnKeyShortcut([GeneratedEnum] Keycode keyCode, KeyEvent e)
+        {
+            return base.OnKeyShortcut(keyCode, e);
+        }
+    }
+}
+
+

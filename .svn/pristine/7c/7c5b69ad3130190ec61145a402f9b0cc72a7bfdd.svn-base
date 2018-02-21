@@ -1,0 +1,37 @@
+﻿using Android.App;
+using Android.Widget;
+using Android.OS;
+using Android.Content.PM;
+
+namespace controller
+{
+    [Activity(Name= "controller.MainActivity", Label = "controller", MainLauncher = true, 
+        ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.KeyboardHidden | ConfigChanges.ScreenSize, 
+        Theme = "@android:style/Theme.NoTitleBar.Fullscreen", ScreenOrientation = ScreenOrientation.Landscape)]
+    public class MainActivity : Activity
+    {
+        Button btnVirtual, btnJoystick;
+        
+        protected override void OnCreate(Bundle savedInstanceState)
+        {
+            base.OnCreate(savedInstanceState);
+            SetContentView(Resource.Layout.Main);
+
+            btnVirtual  = this.FindViewById<Button>(Resource.Id.btnVirtual);
+            btnJoystick = this.FindViewById<Button>(Resource.Id.btnJoystick);
+
+            btnVirtual.Click += delegate
+            {
+                StartActivity(typeof(controller.VirtualActivity));
+            };
+
+            btnJoystick.Click += delegate
+            {
+                StartActivity(typeof(controller.JoystickActivity));
+            };
+        }
+    }
+}
+
+
+

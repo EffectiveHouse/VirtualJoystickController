@@ -1,0 +1,478 @@
+﻿using System;
+using Android.Views;
+using Android.Graphics;
+using Android.Content;
+
+namespace controller
+{
+    public class VirtualController
+    {
+        public const int STICK_NONE = 0;
+        public const int STICK_UP = 1;
+        public const int STICK_UPRIGHT = 2;
+        public const int STICK_RIGHT = 3;
+        public const int STICK_DOWNRIGHT = 4;
+        public const int STICK_DOWN = 5;
+        public const int STICK_DOWNLEFT = 6;
+        public const int STICK_LEFT = 7;
+        public const int STICK_UPLEFT = 8;
+
+        public int STICK_X_MIN = 0;
+        public int STICK_Y_MIN = 0;
+        public int STICK_X_MAX = 0;
+        public int STICK_Y_MAX = 0;
+        public int STICK_X_CENTER = 0;
+        public int STICK_Y_CENTER = 0;
+
+        private int STICK_JUMP_MAX = 50;
+        private int STICK_ALPHA = 200;
+        private int LAYOUT_ALPHA = 200;
+        private int OFFSET = 0;
+
+        public ViewGroup mLayout;
+
+        private Context mContext;
+        private ViewGroup.LayoutParams @params;
+        private int stickWidth, stickHeight;
+
+        private float positionX = 0, positionY = 0, lastX = 0, lastY = 0, positionXmax = 0, positionXmin = 0, positionYmax = 0, positionYmin = 0;
+        private double distance = 0, angle = 0, minDistance = 0;
+
+        //JAVA TO C# CONVERTER NOTE: Fields cannot have the same name as methods:
+        private DrawCanvas drawRenamed;
+        private Paint paint;
+        private Bitmap stick;
+
+        public bool touchState = false;
+
+        public VirtualController(Context context, ViewGroup layout, int stickResID)
+        {
+            mContext = context;
+
+            stick = BitmapFactory.DecodeResource(mContext.Resources, stickResID);
+
+            stickWidth = stick.Width;
+            stickHeight = stick.Height;
+
+            drawRenamed = new DrawCanvas(this, mContext);
+            paint = new Paint();
+            mLayout = layout;
+            @params = mLayout.LayoutParameters;
+        }
+
+        public void DrawStick(MotionEvent arg1)
+        {
+            positionX = (float)ConstrainMinMax(arg1.GetX(), STICK_X_MIN, STICK_X_MAX);
+            positionY = (float)ConstrainMinMax(arg1.GetY(), STICK_Y_MIN, STICK_Y_MAX);
+            distance = (float)Math.Sqrt(Math.Pow(positionX, 2) + Math.Pow(positionY, 2));
+            angle = CalAngle(positionX, positionY);
+
+            if (arg1.Action == MotionEventActions.Down)
+            {
+                positionXmax = (lastX + STICK_JUMP_MAX) > STICK_X_MAX ? STICK_X_MAX : (lastX + STICK_JUMP_MAX);
+                positionXmin = (lastX - STICK_JUMP_MAX) < STICK_X_MIN ? STICK_X_MIN : (lastX - STICK_JUMP_MAX);
+                positionYmax = (lastY + STICK_JUMP_MAX) > STICK_Y_MAX ? STICK_Y_MAX : (lastY + STICK_JUMP_MAX);
+                positionYmin = (lastY - STICK_JUMP_MAX) < STICK_Y_MIN ? STICK_Y_MIN : (lastY - STICK_JUMP_MAX);
+
+                if((positionX > positionXmin) && (positionX < positionXmax) && (positionY > positionYmin) && (positionY < positionYmax))
+                {
+                    drawRenamed.Position(positionX, positionY);
+                    Draw();
+                    touchState = true;
+                }
+
+            }
+            else if (arg1.Action == MotionEventActions.Move && touchState)
+            {
+                drawRenamed.Position(positionX, positionY);
+                Draw();
+            }
+            else if (arg1.Action == MotionEventActions.Up)
+            {
+                touchState = false;
+            }
+        }  
+
+        public void SetLastStickData(float x, float y)
+        {
+            lastX = x;
+            lastY = y;
+        }
+
+        public void DrawStick() { }
+
+        public void DrawPosition(float x, float y)
+        {
+            positionX = x;
+            positionY = y;
+            drawRenamed.Position(positionX, positionY);
+            Draw();
+        }
+
+        public void DrawPosition(double x, double y)
+        {
+            positionX = (float)x;
+            positionY = (float)y;
+            drawRenamed.Position(positionX, positionY);
+            Draw();
+        }
+
+        public virtual double[] Position
+        {
+            get
+            {
+                if (distance > minDistance && touchState)
+                {
+                    return new double[] { positionX, positionY };
+                }
+                return new double[] { 0, 0 };
+            }
+        }
+
+        public virtual double X
+        {
+            get
+            {
+                return positionX;
+            }
+            set
+            {
+                positionX = (float)X;
+            }
+        }
+
+        public virtual double Y
+        {
+            get
+            {
+                return positionY;
+            }
+            set
+            {
+                positionY = (float)Y;
+            }
+        }
+
+        public virtual double Angle
+        {
+            get
+            {
+                if (distance > minDistance && touchState)
+                {
+                    return angle;
+                }
+                return 0;
+            }
+        }
+
+        public virtual double Distance
+        {
+            get
+            {
+                if (distance > minDistance && touchState)
+                {
+                    return distance;
+                }
+                return 0;
+            }
+        }
+
+        public virtual double MinimumDistance
+        {
+            set
+            {
+                minDistance = value;
+            }
+            get
+            {
+                return minDistance;
+            }
+        }
+
+
+        public virtual int Get8Direction()
+        {
+            if (distance > minDistance && touchState)
+            {
+                if (angle >= 247.5 && angle < 292.5)
+                {
+                    return STICK_UP;
+                }
+                else if (angle >= 292.5 && angle < 337.5)
+                {
+                    return STICK_UPRIGHT;
+                }
+                else if (angle >= 337.5 || angle < 22.5)
+                {
+                    return STICK_RIGHT;
+                }
+                else if (angle >= 22.5 && angle < 67.5)
+                {
+                    return STICK_DOWNRIGHT;
+                }
+                else if (angle >= 67.5 && angle < 112.5)
+                {
+                    return STICK_DOWN;
+                }
+                else if (angle >= 112.5 && angle < 157.5)
+                {
+                    return STICK_DOWNLEFT;
+                }
+                else if (angle >= 157.5 && angle < 202.5)
+                {
+                    return STICK_LEFT;
+                }
+                else if (angle >= 202.5 && angle < 247.5)
+                {
+                    return STICK_UPLEFT;
+                }
+            }
+            else if (distance <= minDistance && touchState)
+            {
+                return STICK_NONE;
+            }
+            return 0;
+        }
+
+        public virtual int Get4Direction()
+        {
+            if (distance > minDistance && touchState)
+            {
+                if (angle >= 225 && angle < 315)
+                {
+                    return STICK_UP;
+                }
+                else if (angle >= 315 || angle < 45)
+                {
+                    return STICK_RIGHT;
+                }
+                else if (angle >= 45 && angle < 135)
+                {
+                    return STICK_DOWN;
+                }
+                else if (angle >= 135 && angle < 225)
+                {
+                    return STICK_LEFT;
+                }
+            }
+            else if (distance <= minDistance && touchState)
+            {
+                return STICK_NONE;
+            }
+            return 0;
+        }
+
+        public virtual int Offset
+        {
+            set
+            {
+                OFFSET = value;
+            }
+            get
+            {
+                return OFFSET;
+            }
+        }
+
+
+        public virtual int StickAlpha
+        {
+            set
+            {
+                STICK_ALPHA = value;
+                paint.Alpha = value;
+            }
+            get
+            {
+                return STICK_ALPHA;
+            }
+        }
+
+
+        public virtual int LayoutAlpha
+        {
+            set
+            {
+                LAYOUT_ALPHA = value;
+                mLayout.Background.Alpha = value;
+            }
+            get
+            {
+                return LAYOUT_ALPHA;
+            }
+        }
+
+        public static double ConversionStickData(double input, int inputMin, int inputMax, int outputMin, int outputMax)
+        {
+            double inputData = ConstrainMinMax(input, inputMin, inputMax);
+            double value = (inputData - inputMin) * (outputMax - outputMin) / (inputMax - inputMin) + outputMin;
+
+            return ConstrainMinMax(value, outputMin, outputMax);
+        }
+
+        public static double ConversionStickData(double input, double inputMin, double inputMax, int outputMin, int outputMax)
+        {
+            double inputData = ConstrainMinMax(input, inputMin, inputMax);
+            double value = (inputData - inputMin) * (outputMax - outputMin) / (inputMax - inputMin) + outputMin;
+
+            return ConstrainMinMax(value, outputMin, outputMax);
+        }
+
+        public static double ConstrainMinMax(double input, int min, int max)
+        {
+            return ((input > max) ? max : (input < min) ? min : input);
+        }
+
+        public static double ConstrainMinMax(double input, double min, double max)
+        {
+            return ((input > max) ? max : (input < min) ? min : input);
+        }
+
+
+        public virtual void SetStickSize(int width, int height)
+        {
+            stick = Bitmap.CreateScaledBitmap(stick, width, height, false);
+            stickWidth = stick.Width;
+            stickHeight = stick.Height;
+        }
+
+        public virtual int StickWidth
+        {
+            set
+            {
+                stick = Bitmap.CreateScaledBitmap(stick, value, stickHeight, false);
+                stickWidth = stick.Width;
+            }
+            get
+            {
+                return stickWidth;
+            }
+        }
+
+        public virtual int StickHeight
+        {
+            set
+            {
+                stick = Bitmap.CreateScaledBitmap(stick, stickWidth, value, false);
+                stickHeight = stick.Height;
+            }
+            get
+            {
+                return stickHeight;
+            }
+        }
+
+
+
+        public virtual void SetLayoutSize(int width, int height)
+        {
+            @params.Width = width;
+            @params.Height = height;
+            STICK_X_MIN = 45 + @params.Width / 10;
+            STICK_Y_MIN = 45 + @params.Height / 10;
+            STICK_X_MAX = @params.Width - STICK_X_MIN;
+            STICK_Y_MAX = @params.Height - STICK_Y_MIN;
+            STICK_X_CENTER = @params.Width / 2;
+            STICK_Y_CENTER = @params.Height / 2;
+
+            positionX = STICK_X_CENTER;
+            positionY = STICK_Y_MAX;
+        }
+
+        public virtual int LayoutWidth
+        {
+            get
+            {
+                return @params.Width;
+            }
+        }
+
+        public virtual int LayoutHeight
+        {
+            get
+            {
+                return @params.Height;
+            }
+        }
+
+        private double CalAngle(double x, double y)
+        {
+            if (x >= 0 && y >= 0)
+            {
+                return RadianToDegree(Math.Atan(y / x));
+            }
+            else if (x < 0 && y >= 0)
+            {
+                return RadianToDegree(Math.Atan(y / x)) + 180;
+            }
+            else if (x < 0 && y < 0)
+            {
+                return RadianToDegree(Math.Atan(y / x)) + 180;
+            }
+            else if (x >= 0 && y < 0)
+            {
+                return RadianToDegree(Math.Atan(y / x)) + 360;
+            }
+            return 0;
+        }
+
+        private void Draw()
+        {
+            try
+            {
+                mLayout.RemoveView(drawRenamed);
+            }
+            catch (Exception)
+            {
+            }
+            mLayout.AddView(drawRenamed);
+        }
+
+        public void Remove()
+        {
+            try
+            {
+                mLayout.RemoveView(drawRenamed);
+            }
+            catch (Exception) { }
+        }
+
+        public class DrawCanvas : View
+        {
+            private readonly VirtualController outerInstance;
+
+            internal float x, y;
+
+            public DrawCanvas(VirtualController VirtualController, Context mContext) : base(mContext)
+            {
+                this.outerInstance = VirtualController;
+            }
+
+            public DrawCanvas(Context mContext) : base(mContext)
+            {
+
+            }
+
+            protected override void OnDraw(Canvas canvas)
+            {
+                canvas.DrawBitmap(outerInstance.stick, x, y, outerInstance.paint);
+            }
+
+            public void Position(float pos_x, float pos_y)
+            {
+                x = pos_x - (outerInstance.stickWidth / 2);
+                y = pos_y - (outerInstance.stickHeight / 2);
+            }
+        }
+
+        private double DegreeToRadian(double angle)
+        {
+            return Math.PI * angle / 180.0;
+        }
+
+        private double RadianToDegree(double angle)
+        {
+            return angle * (180.0 / Math.PI);
+        }
+    }
+}

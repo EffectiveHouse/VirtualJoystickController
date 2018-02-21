@@ -1,0 +1,75 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+using Android.App;
+using Android.Content;
+using Android.Hardware.Input;
+using Android.OS;
+using Android.Runtime;
+using Android.Util;
+using Android.Views;
+using Android.Widget;
+
+namespace controller
+{
+    class JoystickController : Java.Lang.Object
+    {
+
+        private const string TAG = "DUAL_SHOCK_TAG";
+        public List<int> connectedDevices = new List<int>();
+        public int currentDeviceID = -1;
+        
+        public JoystickController()
+        {
+        }
+
+        public void CheckGameControllers(int[] getDevicesID)
+        {
+            Log.Debug(TAG, "CheckGameControllers");
+            int[] deviceList = getDevicesID;
+            foreach (int deviceId in deviceList)
+            {
+                InputDevice dev = InputDevice.GetDevice(deviceId);
+                int sources = (int)dev.Sources;
+
+                if (((sources & (int)InputSourceType.Gamepad) == (int)InputSourceType.Gamepad) ||
+                    ((sources & (int)InputSourceType.Joystick) == (int)InputSourceType.Joystick))
+                {
+                    if (!connectedDevices.Contains(deviceId))
+                    {
+                        connectedDevices.Add(deviceId);
+                        if (currentDeviceID == -1)
+                        {
+                            currentDeviceID = deviceId;
+                        }
+                    }
+                }
+            }
+        }
+
+        public float GetCenteredAxis(MotionEvent e, InputDevice device, Axis axis)
+        {
+            InputDevice.MotionRange range = device.GetMotionRange(axis, e.Source);
+            if (range != null)
+            {
+                float flat = range.Flat;
+                float value = e.GetAxisValue(axis);
+                if (System.Math.Abs(value) > flat)
+                    return value;
+            }
+            return 0;
+        }
+
+        public static bool IsGamepad(InputDevice device)
+        {
+            if ((device.Sources & InputSourceType.Gamepad) == InputSourceType.Gamepad ||
+               (device.Sources & InputSourceType.ClassJoystick) == InputSourceType.Joystick)
+            {
+                return true;
+            }
+            return false;
+        }
+    }
+}

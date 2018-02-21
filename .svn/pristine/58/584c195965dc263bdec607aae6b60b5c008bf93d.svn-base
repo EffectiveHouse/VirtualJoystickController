@@ -1,0 +1,228 @@
+﻿using Android.App;
+using Android.Widget;
+using Android.OS;
+using Android.Content.PM;
+using Android.Views;
+using Android.Hardware.Input;
+using System.Collections.Generic;
+using Android.Util;
+using Android.Content;
+
+namespace controller
+{
+    [Activity(ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.KeyboardHidden | ConfigChanges.ScreenSize, 
+     Label = "DualShockController",Theme = "@android:style/Theme.NoTitleBar.Fullscreen", ScreenOrientation = ScreenOrientation.Landscape)]
+    public class JoystickActivity : Activity, InputManager.IInputDeviceListener
+    {
+        public const bool AUTO_HIDE = true;
+        public const int AUTO_HIDE_DELAY_MILLIS = 3000;
+        public const bool TOGGLE_ON_CLICK = true;
+        public SystemUiHider system_ui_hider;
+        public TextView textView;
+        public View controlsView;
+        public View contentView;
+
+        private const string TAG = "JoystickActivity";
+        private const int ARMMING_COUNT = 30;
+
+        private const int HIDER_FLAGS = SystemUiHider.FLAG_HIDE_NAVIGATION;
+        private List<int> connected_devices = new List<int>();
+        private int[] buttons = new int[ButtonMapping.size];
+        private float[] axes = new float[AxesMapping.size];
+        private ControllerView controller_view;
+        private InputManager input_manager;
+        private int current_device_id = -1;
+        
+
+        protected override void OnCreate(Bundle savedInstanceState)
+        {
+            base.OnCreate(savedInstanceState);
+            SetContentView(Resource.Layout.JoystickController);
+
+            textView = this.FindViewById<TextView>(Resource.Id.txtJoystickView);
+
+            input_manager = (InputManager)GetSystemService(Context.InputService);
+            CheckGameControllers();
+
+        }
+        private void CheckGameControllers()
+        {
+            Log.Debug(TAG, "CheckGameControllers");
+            int[] deviceIds = input_manager.GetInputDeviceIds();
+            foreach (int deviceId in deviceIds)
+            {
+                InputDevice dev = InputDevice.GetDevice(deviceId);
+                int sources = (int)dev.Sources;
+
+                if (((sources & (int)InputSourceType.Gamepad) == (int)InputSourceType.Gamepad) ||
+                    ((sources & (int)InputSourceType.Joystick) == (int)InputSourceType.Joystick))
+                {
+                    if (!connected_devices.Contains(deviceId))
+                    {
+                        connected_devices.Add(deviceId);
+                        if (current_device_id == -1)
+                        {
+                            current_device_id = deviceId;
+                            //controller_view.SetCurrentControllerNumber(dev.ControllerNumber);
+                            //controller_view.Invalidate();
+                        }
+                    }
+                }
+            }
+        }
+
+        public override bool OnGenericMotionEvent(MotionEvent e)
+        {
+            textView.Text = "KEY VALUE\nLSTICK X:" + e.GetAxisValue(AxesMapping.AXIS_X).ToString() + " Y: " + e.GetAxisValue(AxesMapping.AXIS_Y).ToString() +
+                                     "\nRSTICK X:" + e.GetAxisValue(AxesMapping.AXIS_RX).ToString() + "Y: " + e.GetAxisValue(AxesMapping.AXIS_RY).ToString();
+            return base.OnGenericMotionEvent(e);
+        }
+
+        private float GetCenteredAxis(MotionEvent e, InputDevice device, Axis axis)
+        {
+            InputDevice.MotionRange range = device.GetMotionRange(axis, e.Source);
+            if (range != null)
+            {
+                float flat = range.Flat;
+                float value = e.GetAxisValue(axis);
+                if (System.Math.Abs(value) > flat)
+                    return value;
+            }
+            return 0;
+        }
+
+        public override bool OnKeyDown(Keycode keyCode, KeyEvent e)
+        {
+            textView.Text = "KEY DOWN : " + keyCode.ToString() + " \n Event : " + e.ToString(); 
+            InputDevice device = e.Device;
+
+            if (keyCode == Keycode.ButtonX)
+            {
+                textView.Text = "OKOK";
+                
+                while (e.RepeatCount > 0)
+                {
+                    if (e.RepeatCount > ARMMING_COUNT)
+                    {
+                        textView.Text = "@@@@@@@@@@@@@@@@@@ARM@@@@@@@@@@@@@@@@@@";
+                    }
+                }
+                if (e.RepeatCount > ARMMING_COUNT)
+                {
+
+                }
+            }
+
+            if (device != null && device.Id == current_device_id)
+            {
+                if (IsGamepad(device))
+                {
+                    int index = ButtonMapping.OrdinalValue(keyCode);
+                    if (index >= 0)
+                    {
+                        buttons[index] = 1;
+                        if(keyCode == Keycode.ButtonX)
+                        {
+                            textView.Text = "OKOK";
+                            while (e.RepeatCount > 0)
+                            {
+                                if(e.RepeatCount > ARMMING_COUNT)
+                                {
+                                    textView.Text = "KEY DOWN : " + keyCode.ToString() + " \n Event : " + e.ToString() + "@@@@@@@@@@@@@@@@@@ARM@@@@@@@@@@@@@@@@@@";
+                                }
+                            }
+                            if(e.RepeatCount > ARMMING_COUNT)
+                            {
+                                
+                            }
+                        }
+                        //controller_view.Invalidate();
+                    }
+                    return true;
+                }
+            }
+            return base.OnKeyDown(keyCode, e);
+        }
+
+        public override bool OnKeyUp(Keycode keyCode, KeyEvent e)
+        {
+            //textView.Text = "KEY DOWN : " + keyCode.ToString() + " \n Event : " + e.ToString(); 
+            
+            InputDevice device = e.Device;
+            if (device != null && device.Id == current_device_id)
+            {
+                int index = ButtonMapping.OrdinalValue(keyCode);
+                if (index >= 0)
+                {
+                    buttons[index] = 0;
+                    //controller_view.Invalidate();
+                }
+                return true;
+            }
+            return base.OnKeyUp(keyCode, e);
+        }
+
+        private bool IsGamepad(InputDevice device)
+        {
+            if ((device.Sources & InputSourceType.Gamepad) == InputSourceType.Gamepad ||
+               (device.Sources & InputSourceType.ClassJoystick) == InputSourceType.Joystick)
+            {
+                return true;
+            }
+            return false;
+        }
+
+        public void OnInputDeviceAdded(int deviceId)
+        {
+            Log.Debug(TAG, "OnInputDeviceAdded: " + deviceId);
+            if (!connected_devices.Contains(deviceId))
+            {
+                connected_devices.Add(deviceId);
+            }
+            if (current_device_id == -1)
+            {
+                current_device_id = deviceId;
+                InputDevice dev = InputDevice.GetDevice(current_device_id);
+                if (dev != null)
+                {
+                    //controller_view.SetCurrentControllerNumber(dev.ControllerNumber);
+                    //controller_view.Invalidate();
+                }
+            }
+        }
+
+        public void OnInputDeviceRemoved(int deviceId)
+        {
+            Log.Debug(TAG, "OnInputDeviceRemoved: ", deviceId);
+            connected_devices.Remove(deviceId);
+            if (current_device_id == deviceId)
+                current_device_id = -1;
+
+            if (connected_devices.Count == 0)
+            {
+                //controller_view.SetCurrentControllerNumber(-1);
+                //controller_view.Invalidate();
+            }
+            else
+            {
+                current_device_id = connected_devices[0];
+                InputDevice dev = InputDevice.GetDevice(current_device_id);
+                if (dev != null)
+                {
+                    //controller_view.SetCurrentControllerNumber(dev.ControllerNumber);
+                    //controller_view.Invalidate();
+                }
+            }
+
+        }
+
+        public void OnInputDeviceChanged(int deviceId)
+        {
+            Log.Debug(TAG, "OnInputDeviceChanged: " + deviceId);
+            //controller_view.Invalidate();
+        }
+
+    }
+}
+
+

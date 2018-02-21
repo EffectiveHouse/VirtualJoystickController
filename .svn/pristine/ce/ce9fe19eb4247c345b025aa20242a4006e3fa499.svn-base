@@ -1,0 +1,42 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+using Android.App;
+using Android.Content;
+using Android.Content.PM;
+using Android.OS;
+using Android.Runtime;
+using Android.Support.V7.App;
+using Android.Views;
+using Android.Widget;
+
+namespace controller
+{
+    [Activity(Label = "SelectActivity", ScreenOrientation = ScreenOrientation.Landscape, Theme = "@style/Theme.AppCompat.Light.NoActionBar")]
+    public class SelectActivity : AppCompatActivity
+    {
+        Button btnVirtual, btnJoystick;
+
+        protected override void OnCreate(Bundle savedInstanceState)
+        {
+            base.OnCreate(savedInstanceState);
+
+            SetContentView(Resource.Layout.Main);
+
+            btnVirtual = this.FindViewById<Button>(Resource.Id.btnVirtual);
+            btnJoystick = this.FindViewById<Button>(Resource.Id.btnJoystick);
+
+            btnVirtual.Click += delegate
+            {
+                StartActivity(typeof(controller.VirtualActivity));
+            };
+
+            btnJoystick.Click += delegate
+            {
+                StartActivity(typeof(controller.JoystickActivity));
+            };
+        }
+    }
+}

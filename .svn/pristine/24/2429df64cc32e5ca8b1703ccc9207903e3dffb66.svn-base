@@ -1,0 +1,146 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Android.App;
+using Android.Bluetooth;
+using Android.Content;
+using Android.OS;
+using Android.Runtime;
+using Android.Views;
+using Android.Widget;
+using Java.Util;
+
+namespace controller
+{
+    class GattServices : BluetoothGattCallback
+    {
+        private BluetoothGatt gattEDURON;
+        private BluetoothGattService serialService;
+        private BluetoothGattCharacteristic writeCharacteristic;
+
+        private static UUID SERIAL_UUID = UUID.FromString("0000fff0-0000-1000-8000-00805f9b34fb");
+        private static UUID TX_UUID = UUID.FromString("0000fff2-0000-1000-8000-00805f9b34fb");
+        private static int CHANNEL_PACKET_SIZE = 18;
+        private static int MAX_CHANNEL = 8;
+        public static byte[] writeBuffer = new byte[CHANNEL_PACKET_SIZE];
+        public static short[] channelData = new short[MAX_CHANNEL];
+        private static byte[] byteShort = new byte[2];
+        public bool stateCheck = false;
+
+        public GattServices()
+        {
+            gattEDURON = null;
+            serialService = null;
+            writeCharacteristic = null;
+        }
+
+        public void ConnectGatt(BluetoothDevice device)
+        { 
+            if (device != null)
+            {
+                if (gattEDURON != null)
+                {
+                    gattEDURON.Connect();
+                }
+                else
+                {
+                    gattEDURON = device.ConnectGatt(Application.Context, false, this);
+                }
+            }
+        }
+
+        private void MakeChannelPacket(byte[] buffer)
+        {
+            // should be add buffer[0], buffer[17]
+            for (int i = 0; i < MAX_CHANNEL; i++)
+            {
+                byteShort = BitConverter.GetBytes(channelData[i]);
+                buffer[2 * i + 1] = byteShort[0];
+                buffer[2 * i + 2] = byteShort[1];
+            }
+            buffer[0] = 0x40; //@
+            buffer[17] = 0x0D; //CR  
+
+
+            //Console.WriteLine("{0}.{1}.{2}.{3}", buffer[2] << 8) + buffer[1], buffer[3] << 8 + buffer[4], buffer[5] << 8 + buffer[6], buffer[7] << 8 + buffer[8]);
+            //Console.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},", (buffer[2] << 8) + buffer[1], (buffer[4] << 8) + buffer[3], (buffer[6] << 8) + buffer[5], (buffer[8] << 8) + buffer[7], (buffer[10] << 8) + buffer[9], (buffer[12] << 8) + buffer[11], (buffer[14] << 8) + buffer[13], (buffer[16] << 8) + buffer[15]);
+
+        }
+        public void WriteGattTest()
+        {
+            if (stateCheck)
+            {
+                MakeChannelPacket(writeBuffer);
+                writeCharacteristic.SetValue(writeBuffer);
+                gattEDURON.WriteCharacteristic(writeCharacteristic);
+            }
+        }
+
+        public async void WriteGatt()
+        {
+            while (true)
+            {
+
+                await Task.Delay(150);
+                //
+                //Thread.Sleep(150);
+                Thread.Sleep(50);
+
+                //await Task.Delay(100);
+                Thread.Sleep(50);
+
+                //make channel data for writing
+                MakeChannelPacket(writeBuffer);
+                writeCharacteristic.SetValue(writeBuffer);
+                gattEDURON.WriteCharacteristic(writeCharacteristic);              
+            }
+        }
+
+        public override void OnConnectionStateChange(BluetoothGatt gatt, GattStatus status, ProfileState newState)
+        {
+            base.OnConnectionStateChange(gatt, status, newState);
+            Console.WriteLine("OnConnectionStateChange()");
+            switch (newState)
+            {
+                case ProfileState.Disconnected:
+                    Console.WriteLine("disconnected");
+                    break;
+                case ProfileState.Connecting:
+                    Console.WriteLine("Connecting");
+                    break;
+                case ProfileState.Connected:
+                    Console.WriteLine("Connected");
+                    Thread.Sleep(400);
+                    gatt.DiscoverServices();
+                    break;
+                case ProfileState.Disconnecting:
+                    Console.WriteLine("Disconnecting");
+                    break;
+            }
+        }
+
+        public override void OnServicesDiscovered(BluetoothGatt gatt, GattStatus status)
+        {
+            base.OnServicesDiscovered(gatt, status);
+            Console.WriteLine("OnServicesDiscovered: " + status.ToString());
+            //Ready to Write Something!
+            serialService = gattEDURON.GetService(SERIAL_UUID);
+            writeCharacteristic = serialService.GetCharacteristic(TX_UUID);
+            //Start Write Thread
+            
+            if (serialService != null && writeCharacteristic != null)
+            {
+                stateCheck = true;           
+            }
+        }
+
+        public override void OnCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, [GeneratedEnum] GattStatus status)
+        {
+            base.OnCharacteristicWrite(gatt, characteristic, status);
+        }
+    }
+}

@@ -1,0 +1,58 @@
+﻿using System;
+using Android.OS;
+using Android.App;
+using Android.Views;
+using Android.Graphics;
+using Android.Content.PM;
+using Android.Support.V7.App;
+using GR.Net.Maroulis.Library;
+
+namespace controller
+{
+    [Activity(Label = "controller",Name = "controller.MainActivity", MainLauncher = true, 
+        ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.KeyboardHidden | ConfigChanges.ScreenSize,
+        Theme = "@style/Theme.AppCompat.Light.NoActionBar", ScreenOrientation = ScreenOrientation.Landscape, Icon = "@drawable/Logo")]
+    public class MainActivity : AppCompatActivity
+    {
+        EasySplashScreen config;
+        public static View view = null;
+
+        protected override void OnCreate(Bundle savedInstanceState)
+        {
+            try
+            {
+                base.OnCreate(savedInstanceState);
+
+                config = new EasySplashScreen(this)
+                    .WithFullScreen()
+                    .WithTargetActivity(Java.Lang.Class.FromType(typeof(controller.ControllerActivity)))
+                    .WithSplashTimeOut(1500) //2sec
+                    .WithBackgroundColor(Color.ParseColor("#ffffff"))
+                    .WithLogo(Resource.Drawable.SplashStart_)
+                    .WithHeaderText("Welcome Controller")
+                    .WithFooterText("Copyright 2018")
+                    .WithBeforeLogoText("DROGEN dev")
+                    .WithAfterLogoText("Dual Shork & Android Controller");
+
+                //Set Text Color
+                config.HeaderTextView.SetTextColor(Color.Black);
+                config.FooterTextView.SetTextColor(Color.Black);
+                config.BeforeLogoTextView.SetTextColor(Color.Black);
+                config.AfterLogoTextView.SetTextColor(Color.Black);
+
+                //Create View
+                view = config.Create();
+
+                //Set Content View
+                SetContentView(view);
+            }
+            catch (Exception)
+            {
+                StartActivity(typeof(controller.ControllerActivity));
+            }
+        }
+    }
+}
+
+
+

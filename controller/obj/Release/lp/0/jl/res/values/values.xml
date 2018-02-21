@@ -1,0 +1,1 @@
+<resources><string name="app_name">Easy Splash Library</string><style name="AppTheme.AppStyled" parent="Theme.AppCompat.Light.DarkActionBar"><item name="windowNoTitle">true</item><item name="windowActionBar">false</item></style></resources>

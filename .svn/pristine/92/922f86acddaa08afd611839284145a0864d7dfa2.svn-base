@@ -1,0 +1,158 @@
+﻿using Android.App;
+using Android.Widget;
+using Android.OS;
+using Android.Content.PM;
+using GR.Net.Maroulis.Library;
+using Android.Graphics;
+using Android.Views;
+using Android.Support.V7.App;
+using Android.Bluetooth;
+using Android.Content;
+using System;
+using Android.Runtime;
+using System.Threading;
+
+namespace controller
+{
+    [Activity(Label = "controller",Name = "controller.MainActivity", MainLauncher = true, 
+        ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.KeyboardHidden | ConfigChanges.ScreenSize,
+        Theme = "@style/Theme.AppCompat.Light.NoActionBar", ScreenOrientation = ScreenOrientation.Landscape, Icon = "@drawable/Logo")]
+    public class MainActivity : AppCompatActivity
+    {
+        private static BluetoothDevice targetDevice = null;
+        private BluetoothAdapter mobileAdapter = null;
+        private static int REQUEST_ENABLE_BLUETOOTH = 1;
+        private static bool delayedStart = false;
+        private static string deviceName = "EDURON";
+
+        GattServices gattServices;
+        EasySplashScreen config;
+        View view;
+
+        protected override void OnCreate(Bundle savedInstanceState)
+        {
+            //Bluetooth action
+            mobileAdapter = BluetoothAdapter.DefaultAdapter;
+
+            if (mobileAdapter == null)
+            {
+                // Device does not support Bluetooth
+                Toast.MakeText(Application.Context, Resource.String.no_adapter, ToastLength.Long).Show();
+            }
+
+            if (!mobileAdapter.IsEnabled)
+            {
+                // Bluetooth should be turn on
+                Intent enableIntent = new Intent(BluetoothAdapter.ActionRequestEnable);
+                StartActivityForResult(enableIntent, REQUEST_ENABLE_BLUETOOTH);
+            }
+            else
+            {
+                var pairedDeivces = mobileAdapter.BondedDevices;
+
+                if (pairedDeivces.Count > 0)
+                {
+                    foreach (var device in pairedDeivces)
+                    {
+                        if (device.Name == deviceName)
+                        {
+                            // set delayedStart
+                            targetDevice = device;
+                            delayedStart = true;
+                            gattServices = new GattServices();
+                            gattServices.ConnectGatt(targetDevice);
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    // No paired device
+                    Toast.MakeText(Application.Context, Resource.String.no_paired_device, ToastLength.Long).Show();
+                }
+            }
+
+            try { 
+            base.OnCreate(savedInstanceState);
+
+                if (delayedStart)
+                {
+                    config = new EasySplashScreen(this)
+                        .WithFullScreen()
+                        .WithTargetActivity(Java.Lang.Class.FromType(typeof(controller.ControllerActivity)))
+                        .WithSplashTimeOut(1500) //2sec
+                        .WithBackgroundColor(Color.ParseColor("#ffffff"))
+                        .WithLogo(Resource.Drawable.Logo)
+                        .WithHeaderText("Welcome Controller")
+                        .WithFooterText("Copyright 2018")
+                        .WithBeforeLogoText("DROGEN dev")
+                        .WithAfterLogoText("Dual Shork & Android Controller");
+                }
+                else
+                {
+                    config = new EasySplashScreen(this)
+                        .WithFullScreen()
+                        //.WithTargetActivity(Java.Lang.Class.FromType(typeof(controller.ControllerActivity)))
+                        .WithSplashTimeOut(1500) //2sec
+                        .WithBackgroundColor(Color.ParseColor("#ffffff"))
+                        .WithLogo(Resource.Drawable.Logo)
+                        .WithHeaderText("Welcome Controller")
+                        .WithFooterText("Copyright 2018")
+                        .WithBeforeLogoText("DROGEN dev")
+                        .WithAfterLogoText("Dual Shork & Android Controller");
+                }
+
+            //Set Text Color
+            config.HeaderTextView.SetTextColor(Color.Black);
+            config.FooterTextView.SetTextColor(Color.Black);
+            config.BeforeLogoTextView.SetTextColor(Color.Black);
+            config.AfterLogoTextView.SetTextColor(Color.Black);
+
+            //Create View
+            view = config.Create();
+
+            //Set Content View
+            SetContentView(view);
+
+            }catch(Exception e)
+            {
+                //StartActivity(typeof(controller.ControllerActivity));
+            }
+        }
+
+        protected override void OnActivityResult(int requestCode, [GeneratedEnum] Result resultCode, Intent data)
+        {
+            base.OnActivityResult(requestCode, resultCode, data);
+
+            if ((requestCode == REQUEST_ENABLE_BLUETOOTH) && (resultCode == Result.Ok))
+            {
+                mobileAdapter = BluetoothAdapter.DefaultAdapter;
+
+                var pairedDeivces = mobileAdapter.BondedDevices;
+
+                if (pairedDeivces.Count > 0)
+                {
+                    foreach (var device in pairedDeivces)
+                    {
+                        if (device.Name == deviceName)
+                        {
+                            //start GattService
+                            gattServices = new GattServices();
+                            gattServices.ConnectGatt(device);
+                            StartActivity(typeof(controller.ControllerActivity));
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    // No paired device
+                    Toast.MakeText(Application.Context, Resource.String.no_paired_device, ToastLength.Long).Show();
+                }
+            }
+        }
+    }
+}
+
+
+
